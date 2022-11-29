@@ -19,23 +19,30 @@
  */
 package org.sonar.plugins.java.api.tree;
 
+import java.util.List;
+import javax.annotation.CheckForNull;
 import org.sonar.java.annotations.Beta;
 
 /**
- * Default pattern tree, introduced with Java 17 and JEP-406.
+ * Record pattern tree, introduced with Java 19 and JEP-405.
  *
  * <pre>
- *   case {@link #defaultToken()} : ...
- *   case {@link #defaultToken()} -> ...
+ *   case {@link #type()} ( {@link #patterns()} ) {@link #name()} : ...
+ *   case {@link #type()} ( {@link #patterns()} ) {@link #name()} -> ...
+ *   case {@link #type()} ( {@link #patterns()} ) : ...
+ *   case {@link #type()} ( {@link #patterns()} ) -> ...
  * </pre>
  *
- * @since Java 17
+ * @since Java 19
  * @deprecated Preview Feature
  */
 @Beta
-@Deprecated(since = "7.7", forRemoval = false)
-public interface DefaultPatternTree extends PatternTree {
+@Deprecated(since = "7.16", forRemoval = false)
+public interface RecordPatternTree extends PatternTree {
+  TypeTree type();
 
-  SyntaxToken defaultToken();
+  List<PatternTree> patterns();
 
+  @CheckForNull
+  IdentifierTree name();
 }

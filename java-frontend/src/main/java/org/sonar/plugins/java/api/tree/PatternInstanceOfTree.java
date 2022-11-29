@@ -19,6 +19,7 @@
  */
 package org.sonar.plugins.java.api.tree;
 
+import javax.annotation.CheckForNull;
 import org.sonar.java.annotations.Beta;
 
 /**
@@ -27,7 +28,7 @@ import org.sonar.java.annotations.Beta;
  * JLS 15.20.2
  *
  * <pre>
- *   {@link #expression()} instanceof {@link #variable()}
+ *   {@link #expression()} instanceof {@link #pattern()}
  * </pre>
  *
  * @since Java 16
@@ -39,6 +40,15 @@ public interface PatternInstanceOfTree extends ExpressionTree {
 
   SyntaxToken instanceofKeyword();
 
+  /**
+   * @since 7.16
+   * @deprecated Use {@link PatternInstanceOfTree#pattern()}
+   * @return null for all patterns that are not {@link TypePatternTree}.
+   */
+  @Deprecated(since = "7.16", forRemoval = true)
+  @CheckForNull
   VariableTree variable();
+
+  PatternTree pattern();
 
 }
