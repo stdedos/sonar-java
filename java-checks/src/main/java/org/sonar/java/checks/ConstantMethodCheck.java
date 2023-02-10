@@ -64,13 +64,13 @@ public class ConstantMethodCheck extends IssuableSubscriptionVisitor {
 
   private static boolean isEffectivelyFinal(MethodTree methodTree) {
     Tree methodParent = methodTree.parent();
-    if (!(methodParent instanceof ClassTree) || methodParent.is(Tree.Kind.ANNOTATION_TYPE, Tree.Kind.INTERFACE)) {
+    if (!(methodParent instanceof ClassTree) || methodParent.is(Tree.Kind.ANNOTATION_TYPE, Tree.Kind.INTERFACE, Kind.ENUM)) {
       return false;
     } else if (methodParent.is(Tree.Kind.RECORD) || ((ClassTree)methodParent).symbol().isFinal()) {
       return true;
     }
     Symbol.MethodSymbol methodSymbol = methodTree.symbol();
-    return methodSymbol.isFinal() || methodSymbol.isPrivate() || methodSymbol.isStatic();
+    return methodSymbol.isFinal() || methodSymbol.isPrivate();
   }
 
   private static boolean isConstant(@Nullable ExpressionTree returnedExpression) {
