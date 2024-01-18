@@ -271,7 +271,7 @@ class SanityTest {
     List<SanityCheckException> exceptions = new ArrayList<>();
     AnalysisProgress analysisProgress = new AnalysisProgress(inputFiles.size());
     JParserConfig.Mode.BATCH
-      .create(javaVersion, classpath)
+      .create(javaVersion, classpath, true)
       .parse(inputFiles, () -> false, analysisProgress, (input, result) -> {
         try {
           scanner.simpleScan(input, result, ast -> {});
