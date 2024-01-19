@@ -48,7 +48,7 @@ only_sonarsource_qa: &ONLY_SONARSOURCE_QA
 common_build_definition: &COMMON_BUILD_DEFINITION
   eks_container:
     <<: *CONTAINER_DEFINITION
-    image: ${CIRRUS_AWS_ACCOUNT}.dkr.ecr.eu-central-1.amazonaws.com/base:j19-latest
+    image: ${CIRRUS_AWS_ACCOUNT}.dkr.ecr.eu-central-1.amazonaws.com/base:j21-latest
     cpu: 4
     memory: 4G
   env:
