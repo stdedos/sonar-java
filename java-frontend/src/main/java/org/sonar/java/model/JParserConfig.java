@@ -156,7 +156,7 @@ public abstract class JParserConfig {
     }
 
     private static void appendFileToAnalyzed(String file) {
-      var path = SonarComponents.debugLocation.resolve("analyzed-" + SonarComponents.timeFormatted + ".log");
+      var path = SonarComponents.debugLocation.resolve("analyzed-" + SonarComponents.subCounter + ".log");
 
       try {
         Files.writeString(path, file + System.lineSeparator(), java.nio.file.StandardOpenOption.CREATE, java.nio.file.StandardOpenOption.APPEND);
@@ -166,7 +166,7 @@ public abstract class JParserConfig {
     }
 
     private static void appendFileToProvided(String file) {
-      var path = SonarComponents.debugLocation.resolve("provided-" + SonarComponents.timeFormatted + ".log");
+      var path = SonarComponents.debugLocation.resolve("provided-" + SonarComponents.subCounter + ".log");
 
       try {
         Files.writeString(path, file + System.lineSeparator(), java.nio.file.StandardOpenOption.CREATE, java.nio.file.StandardOpenOption.APPEND);
@@ -245,7 +245,7 @@ public abstract class JParserConfig {
             .filter(file -> !analyzedSourceFilePaths.contains(file))
             .toList();
 
-          var path = SonarComponents.debugLocation.resolve("not-analyzed-" + SonarComponents.timeFormatted + ".log");
+          var path = SonarComponents.debugLocation.resolve("not-analyzed-" + SonarComponents.subCounter + ".log");
 
           try {
             Files.writeString(path, String.join(System.lineSeparator(), notYetAnalyzedFiles) + System.lineSeparator(),

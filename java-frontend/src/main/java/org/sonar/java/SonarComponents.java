@@ -27,8 +27,6 @@ import java.lang.reflect.Method;
 import java.net.URISyntaxException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Comparator;
@@ -172,7 +170,7 @@ public class SonarComponents extends CheckRegistrar.RegistrarContext {
 
     appendToFile(
       String.join(System.lineSeparator(), activeRules.findAll().stream().map(it -> it.ruleKey().toString()).toList()),
-      ruleKeyLog);
+      getPath("active-rules"));
 
     this.projectDefinition = projectDefinition;
     this.mainChecks = new ArrayList<>();
@@ -248,7 +246,7 @@ public class SonarComponents extends CheckRegistrar.RegistrarContext {
     registerCheckClasses(mainChecks, repositoryKey, javaCheckClassesAndInstances);
 
     String output = mainChecks.stream().map(it -> it.getClass().getSimpleName()).collect(Collectors.joining(System.lineSeparator()));
-    appendToFile(output, checksLog);
+    appendToFile(output, getPath("checks"));
   }
 
   @Override
@@ -318,7 +316,7 @@ public class SonarComponents extends CheckRegistrar.RegistrarContext {
   public Optional<RuleKey> getRuleKey(JavaCheck check) {
     var javaChecks = allChecks.stream().flatMap(it -> it.all().stream());
     var checkNames = javaChecks.map(it -> it.getClass().getSimpleName()).toList();
-    writeToFile(checkNames, allChecksFile);
+    writeToFile(checkNames, getPath("all-checks"));
 
     return allChecks.stream()
       .map(sonarChecks -> sonarChecks.ruleKey(check))
@@ -330,24 +328,36 @@ public class SonarComponents extends CheckRegistrar.RegistrarContext {
     reportIssue(new AnalyzerMessage(check, inputComponent, line, message, cost != null ? cost.intValue() : 0));
   }
 
-  public static final Path debugLocation = Path.of(System.getenv("HOME"), "tmp", "loggedIssues");
-  public static final String timeFormatted = nowFormatted();
-  private static final Path issueLog = debugLocation.resolve("issues-" + timeFormatted + ".log");
-  private static final Path ruleKeyLog = debugLocation.resolve("active-rules-" + timeFormatted + ".log");
-  private static final Path checksLog = debugLocation.resolve("checks-" + timeFormatted + ".log");
-
-  private static final Path allChecksFile = debugLocation.resolve("all-checks-" + timeFormatted + ".log");
-
-  /**
-   * @return the current time formatted as yyyy-MM-dd_HH-mm-ss
-   */
-  private static String nowFormatted() {
-    return DateTimeFormatter.ofPattern("yyyy-MM-dd_HH-mm-ss").format(LocalDateTime.now());
-  }
-
   public static void appendToIssueLog(String line) {
-    appendToFile(line, issueLog);
+    appendToFile(line, getPath("issues"));
   }
+  public static final Path debugLocation = Path.of(System.getenv("HOME"), "tmp", "loggedIssues");
+
+  public static final Path counterFile = SonarComponents.debugLocation.resolve("counter.txt");
+  public static final Path subCounterFile = SonarComponents.debugLocation.resolve("subCounter.txt");
+
+  public static String subCounter = null;
+
+  public static Path getPath(String name) {
+    if (subCounter == null) {
+      try {
+        subCounter = Files.readString(subCounterFile);
+      } catch (IOException e) {
+        throw new RuntimeException(e);
+      }
+    }
+
+    return debugLocation.resolve(name + "-" + subCounter + ".log");
+  }
+
+
+  /*private static final Path issueLog = debugLocation.resolve("issues-" + counter + ".log");
+  private static final Path ruleKeyLog = debugLocation.resolve("active-rules-" + counter + ".log");
+  private static final Path checksLog = debugLocation.resolve("checks-" + counter + ".log");
+
+  private static final Path allChecksFile = debugLocation.resolve("all-checks-" + counter + ".log");*/
+
+
 
   public static void appendToFile(String line, Path file) {
     try {

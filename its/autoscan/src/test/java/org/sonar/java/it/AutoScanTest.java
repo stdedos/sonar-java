@@ -31,6 +31,8 @@ import com.sonar.orchestrator.locator.MavenLocation;
 import java.lang.reflect.Type;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -84,8 +86,58 @@ public class AutoScanTest {
     Integer.parseInt(k1.substring(1)),
     Integer.parseInt(k2.substring(1)));
 
+  static final Path indexFile = SonarComponents.debugLocation.resolve("index.txt");
+  static final Path counterFile = SonarComponents.counterFile;
+  static final Path subCounterFile = SonarComponents.subCounterFile;
+
+  private static String nowFormatted() {
+    return DateTimeFormatter.ofPattern("yyyy-MM-dd_HH-mm-ss").format(LocalDateTime.now());
+  }
+
+  static int counter = getAndIncrementDebugFileCounter();
+
+  static int getAndIncrementDebugFileCounter() {
+    if (!Files.exists(counterFile)) {
+      try {
+        Files.createFile(counterFile);
+        Files.writeString(counterFile, "0");
+      } catch (Exception e) {
+        throw new IllegalStateException("Unable to create counter file", e);
+      }
+    }
+
+    int counter;
+    try {
+      counter = Integer.parseInt(Files.readString(counterFile));
+      Files.writeString(counterFile, String.valueOf(counter + 1));
+    } catch (Exception e) {
+      throw new IllegalStateException("Unable to read or write counter file", e);
+    }
+
+    // Add mapping from counter to date/time to index.txt:
+    try {
+      Files.writeString(indexFile, String.format("%d: %s\n", counter, nowFormatted()),
+        java.nio.file.StandardOpenOption.CREATE, java.nio.file.StandardOpenOption.APPEND);
+    } catch (Exception e) {
+      throw new IllegalStateException("Unable to write index file", e);
+    }
+
+    writeSubCounterFile("x");
+
+    return counter;
+  }
+
+  static void writeSubCounterFile(String stage) {
+    try {
+      Files.writeString(subCounterFile, String.valueOf(counter) + stage);
+    } catch (Exception e) {
+      throw new IllegalStateException("Unable to read or write counter file", e);
+    }
+  }
+
   @Test
   public void javaCheckTestSources() throws Exception {
+    writeSubCounterFile("a");
     List<String> ruleKeys = generateSonarWay(orchestrator);
 
     orchestrator.getServer().provisionProject(PROJECT_KEY, PROJECT_NAME);
@@ -117,6 +169,7 @@ public class AutoScanTest {
     orchestrator.executeBuild(mavenBuild);
     SonarComponents.appendToIssueLog("END mvn");
 
+    writeSubCounterFile("b");
     /**
      * 2. Execute the analysis as sonar-scanner project, without any bytecode nor dependencies/libraries
      */
@@ -147,6 +200,7 @@ public class AutoScanTest {
     orchestrator.executeBuild(sonarScannerBuild);
     SonarComponents.appendToIssueLog("END no binaries");
 
+    writeSubCounterFile("c");
     /**
      * 3. Check if differences in expectations in terms of FP/FN/TP
      *
@@ -157,8 +211,8 @@ public class AutoScanTest {
     Map<String, RuleIssues> mvnIssues = loadIssues(PROJECT_KEY + "-mvn");
     Map<String, RuleIssues> noBinariesIssues = loadIssues(PROJECT_KEY + "-no-binaries");
 
-    var mvnIssuesOutputFile = SonarComponents.debugLocation.resolve("mvnIssues-" + SonarComponents.timeFormatted + ".json");
-    var noBinariesIssuesOutputFile = SonarComponents.debugLocation.resolve("noBinIssues-" + SonarComponents.timeFormatted + ".json");
+    var mvnIssuesOutputFile = SonarComponents.debugLocation.resolve("mvnIssues-" + SonarComponents.subCounter + ".json");
+    var noBinariesIssuesOutputFile = SonarComponents.debugLocation.resolve("noBinIssues-" + SonarComponents.subCounter + ".json");
     Files.writeString(mvnIssuesOutputFile, GSON.toJson(mvnIssues));
     Files.writeString(noBinariesIssuesOutputFile, GSON.toJson(noBinariesIssues));
 
