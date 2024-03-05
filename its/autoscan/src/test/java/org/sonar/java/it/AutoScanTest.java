@@ -129,7 +129,7 @@ public class AutoScanTest {
 
   static void writeSubCounterFile(String stage) {
     try {
-      Files.writeString(subCounterFile, String.valueOf(counter) + stage);
+      Files.writeString(subCounterFile, counter + stage, java.nio.file.StandardOpenOption.CREATE, java.nio.file.StandardOpenOption.TRUNCATE_EXISTING);
     } catch (Exception e) {
       throw new IllegalStateException("Unable to read or write counter file", e);
     }

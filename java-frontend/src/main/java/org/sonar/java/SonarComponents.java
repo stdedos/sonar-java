@@ -282,6 +282,8 @@ public class SonarComponents extends CheckRegistrar.RegistrarContext {
   }
 
   private void registerCheckClasses(List<JavaCheck> destinationList, String repositoryKey, Collection<?> javaCheckClassesAndInstances) {
+    appendToFile(javaCheckClassesAndInstances.stream().map(it -> it.getClass().getSimpleName()).toList(), getPath("register-input"));
+
     Checks<JavaCheck> createdChecks = checkFactory.<JavaCheck>create(repositoryKey).addAnnotatedChecks(javaCheckClassesAndInstances);
     allChecks.add(createdChecks);
     Map<Class<? extends JavaCheck>, Integer> classIndexes = new HashMap<>();
@@ -298,6 +300,9 @@ public class SonarComponents extends CheckRegistrar.RegistrarContext {
       .sorted(Comparator.comparing(check -> classIndexes.getOrDefault(check.getClass(), Integer.MAX_VALUE)))
       .toList();
     destinationList.addAll(orderedChecks);
+
+    appendToFile(destinationList.stream().map(it -> it.getClass().getSimpleName()).toList(), getPath("register-output"));
+
     jspChecks.addAll(orderedChecks.stream().filter(JspCodeVisitor.class::isInstance).toList());
   }
 
@@ -331,6 +336,7 @@ public class SonarComponents extends CheckRegistrar.RegistrarContext {
   public static void appendToIssueLog(String line) {
     appendToFile(line, getPath("issues"));
   }
+
   public static final Path debugLocation = Path.of(System.getenv("HOME"), "tmp", "loggedIssues");
 
   public static final Path counterFile = SonarComponents.debugLocation.resolve("counter.txt");
@@ -350,14 +356,13 @@ public class SonarComponents extends CheckRegistrar.RegistrarContext {
     return debugLocation.resolve(name + "-" + subCounter + ".log");
   }
 
-
-  /*private static final Path issueLog = debugLocation.resolve("issues-" + counter + ".log");
-  private static final Path ruleKeyLog = debugLocation.resolve("active-rules-" + counter + ".log");
-  private static final Path checksLog = debugLocation.resolve("checks-" + counter + ".log");
-
-  private static final Path allChecksFile = debugLocation.resolve("all-checks-" + counter + ".log");*/
-
-
+  /*
+   * private static final Path issueLog = debugLocation.resolve("issues-" + counter + ".log");
+   * private static final Path ruleKeyLog = debugLocation.resolve("active-rules-" + counter + ".log");
+   * private static final Path checksLog = debugLocation.resolve("checks-" + counter + ".log");
+   *
+   * private static final Path allChecksFile = debugLocation.resolve("all-checks-" + counter + ".log");
+   */
 
   public static void appendToFile(String line, Path file) {
     try {
@@ -367,6 +372,10 @@ public class SonarComponents extends CheckRegistrar.RegistrarContext {
       System.err.println("###################### ERROR: Failed to write to issue log");
       e.printStackTrace();
     }
+  }
+
+  public static void appendToFile(List<String> content, Path file) {
+    appendToFile(String.join(System.lineSeparator(), content), file);
   }
 
   public static void writeToFile(List<String> content, Path file) {
