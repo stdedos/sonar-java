@@ -25,6 +25,10 @@ import java.io.IOException;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.net.URISyntaxException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Comparator;
@@ -129,8 +133,8 @@ public class SonarComponents extends CheckRegistrar.RegistrarContext {
   private boolean alreadyLoggedSkipStatus = false;
 
   public SonarComponents(FileLinesContextFactory fileLinesContextFactory, FileSystem fs,
-                         ClasspathForMain javaClasspath, ClasspathForTest javaTestClasspath,
-                         CheckFactory checkFactory, ActiveRules activeRules) {
+    ClasspathForMain javaClasspath, ClasspathForTest javaTestClasspath,
+    CheckFactory checkFactory, ActiveRules activeRules) {
     this(fileLinesContextFactory, fs, javaClasspath, javaTestClasspath, checkFactory, activeRules, null, null);
   }
 
@@ -138,8 +142,8 @@ public class SonarComponents extends CheckRegistrar.RegistrarContext {
    * Will be called in SonarLint context when custom rules are present
    */
   public SonarComponents(FileLinesContextFactory fileLinesContextFactory, FileSystem fs,
-                         ClasspathForMain javaClasspath, ClasspathForTest javaTestClasspath, CheckFactory checkFactory,
-                         ActiveRules activeRules, @Nullable CheckRegistrar[] checkRegistrars) {
+    ClasspathForMain javaClasspath, ClasspathForTest javaTestClasspath, CheckFactory checkFactory,
+    ActiveRules activeRules, @Nullable CheckRegistrar[] checkRegistrars) {
     this(fileLinesContextFactory, fs, javaClasspath, javaTestClasspath, checkFactory, activeRules, checkRegistrars, null);
   }
 
@@ -147,24 +151,29 @@ public class SonarComponents extends CheckRegistrar.RegistrarContext {
    * Will be called in SonarScanner context when no custom rules is present
    */
   public SonarComponents(FileLinesContextFactory fileLinesContextFactory, FileSystem fs,
-                         ClasspathForMain javaClasspath, ClasspathForTest javaTestClasspath, CheckFactory checkFactory,
-                         ActiveRules activeRules, @Nullable ProjectDefinition projectDefinition) {
-    this(fileLinesContextFactory, fs, javaClasspath, javaTestClasspath, checkFactory, activeRules,null, projectDefinition);
+    ClasspathForMain javaClasspath, ClasspathForTest javaTestClasspath, CheckFactory checkFactory,
+    ActiveRules activeRules, @Nullable ProjectDefinition projectDefinition) {
+    this(fileLinesContextFactory, fs, javaClasspath, javaTestClasspath, checkFactory, activeRules, null, projectDefinition);
   }
 
   /**
    * ProjectDefinition class is not available in SonarLint context, so this constructor will never be called when using SonarLint
    */
   public SonarComponents(FileLinesContextFactory fileLinesContextFactory, FileSystem fs,
-                         ClasspathForMain javaClasspath, ClasspathForTest javaTestClasspath, CheckFactory checkFactory,
-                         ActiveRules activeRules, @Nullable CheckRegistrar[] checkRegistrars,
-                         @Nullable ProjectDefinition projectDefinition) {
+    ClasspathForMain javaClasspath, ClasspathForTest javaTestClasspath, CheckFactory checkFactory,
+    ActiveRules activeRules, @Nullable CheckRegistrar[] checkRegistrars,
+    @Nullable ProjectDefinition projectDefinition) {
     this.fileLinesContextFactory = fileLinesContextFactory;
     this.fs = fs;
     this.javaClasspath = javaClasspath;
     this.javaTestClasspath = javaTestClasspath;
     this.checkFactory = checkFactory;
     this.activeRules = activeRules;
+
+    appendToFile(
+      String.join(System.lineSeparator(), activeRules.findAll().stream().map(it -> it.ruleKey().toString()).toList()),
+      ruleKeyLog);
+
     this.projectDefinition = projectDefinition;
     this.mainChecks = new ArrayList<>();
     this.testChecks = new ArrayList<>();
@@ -237,6 +246,9 @@ public class SonarComponents extends CheckRegistrar.RegistrarContext {
   @Override
   public void registerMainChecks(String repositoryKey, Collection<?> javaCheckClassesAndInstances) {
     registerCheckClasses(mainChecks, repositoryKey, javaCheckClassesAndInstances);
+
+    String output = mainChecks.stream().map(it -> it.getClass().getSimpleName()).collect(Collectors.joining(System.lineSeparator()));
+    appendToFile(output, checksLog);
   }
 
   @Override
@@ -271,7 +283,6 @@ public class SonarComponents extends CheckRegistrar.RegistrarContext {
     return ruleKeys.stream().anyMatch(ruleKey -> activeRules.find(ruleKey) != null);
   }
 
-
   private void registerCheckClasses(List<JavaCheck> destinationList, String repositoryKey, Collection<?> javaCheckClassesAndInstances) {
     Checks<JavaCheck> createdChecks = checkFactory.<JavaCheck>create(repositoryKey).addAnnotatedChecks(javaCheckClassesAndInstances);
     allChecks.add(createdChecks);
@@ -305,6 +316,10 @@ public class SonarComponents extends CheckRegistrar.RegistrarContext {
   }
 
   public Optional<RuleKey> getRuleKey(JavaCheck check) {
+    var javaChecks = allChecks.stream().flatMap(it -> it.all().stream());
+    var checkNames = javaChecks.map(it -> it.getClass().getSimpleName()).toList();
+    writeToFile(checkNames, allChecksFile);
+
     return allChecks.stream()
       .map(sonarChecks -> sonarChecks.ruleKey(check))
       .filter(Objects::nonNull)
@@ -315,10 +330,69 @@ public class SonarComponents extends CheckRegistrar.RegistrarContext {
     reportIssue(new AnalyzerMessage(check, inputComponent, line, message, cost != null ? cost.intValue() : 0));
   }
 
+  public static final Path debugLocation = Path.of(System.getenv("HOME"), "tmp", "loggedIssues");
+  public static final String timeFormatted = nowFormatted();
+  private static final Path issueLog = debugLocation.resolve("issues-" + timeFormatted + ".log");
+  private static final Path ruleKeyLog = debugLocation.resolve("active-rules-" + timeFormatted + ".log");
+  private static final Path checksLog = debugLocation.resolve("checks-" + timeFormatted + ".log");
+
+  private static final Path allChecksFile = debugLocation.resolve("all-checks-" + timeFormatted + ".log");
+
+  /**
+   * @return the current time formatted as yyyy-MM-dd_HH-mm-ss
+   */
+  private static String nowFormatted() {
+    return DateTimeFormatter.ofPattern("yyyy-MM-dd_HH-mm-ss").format(LocalDateTime.now());
+  }
+
+  public static void appendToIssueLog(String line) {
+    appendToFile(line, issueLog);
+  }
+
+  public static void appendToFile(String line, Path file) {
+    try {
+      Files.writeString(file, line + System.lineSeparator(), java.nio.file.StandardOpenOption.CREATE,
+        java.nio.file.StandardOpenOption.APPEND);
+    } catch (IOException e) {
+      System.err.println("###################### ERROR: Failed to write to issue log");
+      e.printStackTrace();
+    }
+  }
+
+  public static void writeToFile(List<String> content, Path file) {
+    writeToFile(String.join(System.lineSeparator(), content), file);
+  }
+
+  public static void writeToFile(String content, Path file) {
+    try {
+      Files.writeString(file, content, java.nio.file.StandardOpenOption.CREATE,
+        java.nio.file.StandardOpenOption.TRUNCATE_EXISTING);
+    } catch (IOException e) {
+      System.err.println("###################### ERROR: Failed to write to issue log");
+      e.printStackTrace();
+    }
+  }
+
+  private static long issueCount = 0;
+
+  private void appendToIssueLog(AnalyzerMessage analyzerMessage) {
+    var check = analyzerMessage.getCheck();
+    var checkName = check.getClass().getSimpleName();
+    var ruleKey = getRuleKey(check).map(RuleKey::toString).orElse("?????");
+    var line = analyzerMessage.getLine();
+    var fileNameParts = analyzerMessage.getInputComponent().key().split("/");
+    var fileName = fileNameParts[fileNameParts.length - 1];
+
+    appendToIssueLog(String.format("REPORT [%d] %s | %s %d | %s", ++issueCount, ruleKey, fileName, line, checkName));
+  }
+
   public void reportIssue(AnalyzerMessage analyzerMessage) {
     JavaCheck check = analyzerMessage.getCheck();
     Objects.requireNonNull(check);
     Objects.requireNonNull(analyzerMessage.getMessage());
+
+    appendToIssueLog(analyzerMessage);
+
     getRuleKey(check).ifPresent(key -> {
       InputComponent inputComponent = analyzerMessage.getInputComponent();
       if (inputComponent == null) {
@@ -347,6 +421,7 @@ public class SonarComponents extends CheckRegistrar.RegistrarContext {
       issue.addFlow((InputFile) analyzerMessage.getInputComponent(), analyzerMessage.flows);
     }
     issue.save();
+    appendToIssueLog(String.format("SAVED   %d.", issueCount));
   }
 
   public boolean reportAnalysisError(RecognitionException re, InputFile inputFile) {
@@ -491,7 +566,6 @@ public class SonarComponents extends CheckRegistrar.RegistrarContext {
     }
   }
 
-
   public boolean fileCanBeSkipped(InputFile inputFile) {
     var contentHashCache = new ContentHashCache(context);
     if (inputFile instanceof GeneratedFile) {
@@ -514,8 +588,7 @@ public class SonarComponents extends CheckRegistrar.RegistrarContext {
       if (!alreadyLoggedSkipStatus) {
         LOG.info(
           "Cannot determine whether the context allows skipping unchanged files: canSkipUnchangedFiles not part of sonar-plugin-api. Not skipping. {}",
-          e.getCause().getMessage()
-        );
+          e.getCause().getMessage());
         alreadyLoggedSkipStatus = true;
       }
       contentHashCache.writeToCache(inputFile);
@@ -561,15 +634,13 @@ public class SonarComponents extends CheckRegistrar.RegistrarContext {
         .filter(entry -> entry.getKey().type() == JProblem.Type.UNDEFINED_TYPE),
       maxLines,
       "Unresolved imports/types have been detected during analysis. Enable DEBUG mode to see them.",
-      "Unresolved imports/types:"
-    );
+      "Unresolved imports/types:");
     logParserMessages(
       problemsToFilePaths.entrySet().stream()
         .filter(entry -> entry.getKey().type() == JProblem.Type.PREVIEW_FEATURE_USED),
       maxLines,
       "Use of preview features have been detected during analysis. Enable DEBUG mode to see them.",
-      "Use of preview features:"
-    );
+      "Use of preview features:");
   }
 
   private static void logParserMessages(Stream<Map.Entry<JProblem, List<String>>> messages, int maxProblems, String warningMessage, String debugMessage) {
@@ -600,8 +671,7 @@ public class SonarComponents extends CheckRegistrar.RegistrarContext {
         .stream()
         .limit(maxProblems)
         .flatMap(List::stream)
-        .collect(Collectors.joining(System.lineSeparator(), firstLine, lastLine))
-      );
+        .collect(Collectors.joining(System.lineSeparator(), firstLine, lastLine)));
     }
   }
 

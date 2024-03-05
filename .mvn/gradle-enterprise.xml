@@ -6,8 +6,11 @@
     <accessKey>${env.GRADLE_ENTERPRISE_KEY}</accessKey>
   </server>
   <buildCache>
+    <local>
+      <enabled>false</enabled>
+    </local>
     <remote>
-      <enabled>#{env['CIRRUS_CRON'] != "nightly"}</enabled>
+      <enabled>false</enabled>
       <storeEnabled>true</storeEnabled>
     </remote>
     <requireClean>false</requireClean>

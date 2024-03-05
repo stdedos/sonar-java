@@ -51,6 +51,7 @@ import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.sonar.java.SonarComponents;
 import org.sonar.java.test.classpath.TestClasspathUtils;
 
 public class AutoScanTest {
@@ -95,6 +96,7 @@ public class AutoScanTest {
      */
     String correctConfigIssues = absolutePathFor(TARGET_ACTUAL + PROJECT_KEY + "-mvn");
 
+    SonarComponents.appendToIssueLog("START mvn");
     MavenBuild mavenBuild = MavenBuild.create()
       .setPom(FileLocation.of(PROJECT_LOCATION + "pom.xml").getFile().getCanonicalFile())
       .addSonarGoal()
@@ -113,10 +115,12 @@ public class AutoScanTest {
       .setProperty("sonar.lits.differences", absolutePathFor(TARGET_ACTUAL + PROJECT_KEY + "-mvn_differences"));
 
     orchestrator.executeBuild(mavenBuild);
+    SonarComponents.appendToIssueLog("END mvn");
 
     /**
      * 2. Execute the analysis as sonar-scanner project, without any bytecode nor dependencies/libraries
      */
+    SonarComponents.appendToIssueLog("START no binaries");
     SonarScanner sonarScannerBuild = SonarScanner.create(FileLocation.of(PROJECT_LOCATION).getFile())
       .setProjectKey(PROJECT_KEY)
       .setProjectName(PROJECT_NAME)
@@ -141,6 +145,7 @@ public class AutoScanTest {
       .setProperty("sonar.lits.differences", absolutePathFor(TARGET_ACTUAL + PROJECT_KEY + "-no-binaries_differences"));
 
     orchestrator.executeBuild(sonarScannerBuild);
+    SonarComponents.appendToIssueLog("END no binaries");
 
     /**
      * 3. Check if differences in expectations in terms of FP/FN/TP
@@ -151,6 +156,12 @@ public class AutoScanTest {
      */
     Map<String, RuleIssues> mvnIssues = loadIssues(PROJECT_KEY + "-mvn");
     Map<String, RuleIssues> noBinariesIssues = loadIssues(PROJECT_KEY + "-no-binaries");
+
+    var mvnIssuesOutputFile = SonarComponents.debugLocation.resolve("mvnIssues-" + SonarComponents.timeFormatted + ".json");
+    var noBinariesIssuesOutputFile = SonarComponents.debugLocation.resolve("noBinIssues-" + SonarComponents.timeFormatted + ".json");
+    Files.writeString(mvnIssuesOutputFile, GSON.toJson(mvnIssues));
+    Files.writeString(noBinariesIssuesOutputFile, GSON.toJson(noBinariesIssues));
+
     Collection<IssueDiff> newDiffs = calculateDifferences(ruleKeys, mvnIssues, noBinariesIssues).values();
 
     IssueDiff newTotal = IssueDiff.total(newDiffs);
@@ -215,6 +226,7 @@ public class AutoScanTest {
     softly.assertThat(differences).isEqualTo("Issues differences: " + expectedDiffs);
 
     softly.assertAll();
+    SonarComponents.appendToIssueLog("END TEST: SUCCESS");
   }
 
   private static Path pathFor(String path) {

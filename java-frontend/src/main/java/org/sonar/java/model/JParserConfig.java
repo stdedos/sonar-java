@@ -20,6 +20,8 @@
 package org.sonar.java.model;
 
 import java.io.File;
+import java.io.IOException;
+import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -43,6 +45,7 @@ import org.sonar.api.batch.fs.InputFile;
 import org.sonar.java.AnalysisProgress;
 import org.sonar.java.ExecutionTimeReport;
 import org.sonar.java.ProgressMonitor;
+import org.sonar.java.SonarComponents;
 import org.sonar.java.annotations.VisibleForTesting;
 import org.sonar.plugins.java.api.JavaVersion;
 import org.sonarsource.analyzer.commons.ProgressReport;
@@ -152,9 +155,33 @@ public abstract class JParserConfig {
       super(javaVersion, classpath, shouldIgnoreUnnamedModuleForSplitPackage);
     }
 
+    private static void appendFileToAnalyzed(String file) {
+      var path = SonarComponents.debugLocation.resolve("analyzed-" + SonarComponents.timeFormatted + ".log");
+
+      try {
+        Files.writeString(path, file + System.lineSeparator(), java.nio.file.StandardOpenOption.CREATE, java.nio.file.StandardOpenOption.APPEND);
+      } catch (IOException e) {
+        LOG.error("Failed to write analyzed file to {}", path, e);
+      }
+    }
+
+    private static void appendFileToProvided(String file) {
+      var path = SonarComponents.debugLocation.resolve("provided-" + SonarComponents.timeFormatted + ".log");
+
+      try {
+        Files.writeString(path, file + System.lineSeparator(), java.nio.file.StandardOpenOption.CREATE, java.nio.file.StandardOpenOption.APPEND);
+      } catch (IOException e) {
+        LOG.error("Failed to write analyzed file to {}", path, e);
+      }
+    }
+
     @Override
     public void parse(Iterable<? extends InputFile> inputFiles, BooleanSupplier isCanceled,
       AnalysisProgress analysisProgress, BiConsumer<InputFile, Result> action) {
+
+      for (InputFile inputFile : inputFiles) {
+        appendFileToProvided(inputFile.absolutePath());
+      }
 
       List<String> sourceFilePaths = new ArrayList<>();
       Set<String> analyzedSourceFilePaths = new HashSet<>();
@@ -176,6 +203,8 @@ public abstract class JParserConfig {
           public void acceptAST(String sourceFilePath, CompilationUnit ast) {
             PerformanceMeasure.Duration convertDuration = PerformanceMeasure.start("Convert");
             analyzedSourceFilePaths.add(sourceFilePath);
+
+            appendFileToAnalyzed(sourceFilePath);
 
             InputFile inputFile = inputs.get(new File(sourceFilePath));
             executionTimeReport.start(inputFile);
@@ -211,6 +240,21 @@ public abstract class JParserConfig {
           LOG.warn("Unexpected {}: {}", e.getClass().getName(), e.getMessage());
         }
       } finally {
+        if (sourceFilePaths.size() != analyzedSourceFilePaths.size()) {
+          var notYetAnalyzedFiles = sourceFilePaths.stream()
+            .filter(file -> !analyzedSourceFilePaths.contains(file))
+            .toList();
+
+          var path = SonarComponents.debugLocation.resolve("not-analyzed-" + SonarComponents.timeFormatted + ".log");
+
+          try {
+            Files.writeString(path, String.join(System.lineSeparator(), notYetAnalyzedFiles) + System.lineSeparator(),
+              java.nio.file.StandardOpenOption.CREATE, java.nio.file.StandardOpenOption.APPEND);
+          } catch (IOException e) {
+            LOG.error("Failed to write not analyzed files to {}", path, e);
+          }
+        }
+
         batchPerformance.stop();
         // ExecutionTimeReport will not include the parsing time by file when using batch mode.
         executionTimeReport.reportAsBatch();
