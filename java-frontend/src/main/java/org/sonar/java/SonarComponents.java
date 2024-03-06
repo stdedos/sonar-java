@@ -308,7 +308,7 @@ public class SonarComponents extends CheckRegistrar.RegistrarContext {
 
     jspChecks.addAll(orderedChecks.stream().filter(JspCodeVisitor.class::isInstance).toList());
 
-    System.exit(0);
+    //System.exit(0);
   }
 
   public List<JavaCheck> mainChecks() {

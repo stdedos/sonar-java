@@ -171,10 +171,10 @@ public class AutoScanTest {
       .setProperty("sonar.lits.differences", absolutePathFor(TARGET_ACTUAL + PROJECT_KEY + "-mvn_differences"));
 
     int i = 0;
-    while (true) {
+    //while (true) {
       System.out.println("#### ATTEMPT " + ++i);
       orchestrator.executeBuild(mavenBuild);
-    }
+    //}
   }
 
   public void javaCheckTestSources() throws Exception {
