@@ -48,6 +48,8 @@ import java.util.TreeSet;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 import org.assertj.core.api.SoftAssertions;
+import org.junit.AfterClass;
+import org.junit.BeforeClass;
 import org.junit.ClassRule;
 import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
@@ -67,7 +69,7 @@ public class AutoScanTest {
   @ClassRule
   public static TemporaryFolder tmpDumpOldFolder = new TemporaryFolder();
 
-  @ClassRule
+  //@ClassRule
   public static Orchestrator orchestrator = Orchestrator.builderEnv()
     .useDefaultAdminCredentialsForBuilds(true)
     .setSonarVersion(System.getProperty("sonar.runtimeVersion", "LATEST_RELEASE"))
@@ -136,6 +138,45 @@ public class AutoScanTest {
   }
 
   @Test
+  public void foo() throws Exception {
+    orchestrator.start();
+
+    writeSubCounterFile("a");
+    List<String> ruleKeys = generateSonarWay(orchestrator);
+
+    orchestrator.getServer().provisionProject(PROJECT_KEY, PROJECT_NAME);
+    orchestrator.getServer().associateProjectToQualityProfile(PROJECT_KEY, "java", "rules");
+
+    /**
+     * 1. Run the analysis as maven project
+     */
+    String correctConfigIssues = absolutePathFor(TARGET_ACTUAL + PROJECT_KEY + "-mvn");
+
+    SonarComponents.appendToIssueLog("START mvn");
+    MavenBuild mavenBuild = MavenBuild.create()
+      .setPom(FileLocation.of(PROJECT_LOCATION + "pom.xml").getFile().getCanonicalFile())
+      .addSonarGoal()
+      .addArgument("-DskipTests")
+      .addArgument("-Panalyze-tests")
+      .setProperty("sonar.projectKey", PROJECT_KEY)
+      .setProperty("sonar.projectName", PROJECT_NAME)
+      // common properties
+      .setProperty("sonar.cpd.exclusions", "**/*")
+      .setProperty("sonar.skipPackageDesign", "true")
+      .setProperty("sonar.internal.analysis.failFast", "true")
+      .setProperty("sonar.java.ignoreUnnamedModuleForSplitPackage", "true")
+      // start with no known issues
+      .setProperty("sonar.lits.dump.old", tmpDumpOldFolder.newFolder().getAbsolutePath())
+      .setProperty("sonar.lits.dump.new", correctConfigIssues)
+      .setProperty("sonar.lits.differences", absolutePathFor(TARGET_ACTUAL + PROJECT_KEY + "-mvn_differences"));
+
+    int i = 0;
+    while (true) {
+      System.out.println("#### ATTEMPT " + ++i);
+      orchestrator.executeBuild(mavenBuild);
+    }
+  }
+
   public void javaCheckTestSources() throws Exception {
     writeSubCounterFile("a");
     List<String> ruleKeys = generateSonarWay(orchestrator);

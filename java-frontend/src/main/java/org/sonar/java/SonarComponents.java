@@ -285,6 +285,9 @@ public class SonarComponents extends CheckRegistrar.RegistrarContext {
     appendToFile(javaCheckClassesAndInstances.stream().map(it -> it.getClass().getSimpleName()).toList(), getPath("register-input"));
 
     Checks<JavaCheck> createdChecks = checkFactory.<JavaCheck>create(repositoryKey).addAnnotatedChecks(javaCheckClassesAndInstances);
+
+    appendToFile(createdChecks.all().stream().map(it -> it.getClass().getSimpleName()).toList(), getPath("register-created"));
+
     allChecks.add(createdChecks);
     Map<Class<? extends JavaCheck>, Integer> classIndexes = new HashMap<>();
     int i = 0;
@@ -304,6 +307,8 @@ public class SonarComponents extends CheckRegistrar.RegistrarContext {
     appendToFile(destinationList.stream().map(it -> it.getClass().getSimpleName()).toList(), getPath("register-output"));
 
     jspChecks.addAll(orderedChecks.stream().filter(JspCodeVisitor.class::isInstance).toList());
+
+    System.exit(0);
   }
 
   public List<JavaCheck> mainChecks() {
