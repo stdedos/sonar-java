@@ -31,7 +31,7 @@ class DisallowedThreadGroupCheckTest {
   @Test
   void test() {
     CheckVerifier.newVerifier()
-      .onFile(mainCodeSourcesPath("checks/DisallowedThreadGroupCheck.java"))
+      .onFile(mainCodeSourcesPath("checks/DisallowedThreadGroupCheckSample.java"))
       .withCheck(new DisallowedThreadGroupCheck())
       .verifyIssues();
   }
@@ -39,7 +39,7 @@ class DisallowedThreadGroupCheckTest {
   @Test
   void no_issue_without_semantic() {
     CheckVerifier.newVerifier()
-      .onFile(mainCodeSourcesPath("checks/DisallowedThreadGroupCheck.java"))
+      .onFile(mainCodeSourcesPath("checks/DisallowedThreadGroupCheckSample.java"))
       .withCheck(new DisallowedThreadGroupCheck())
       .withoutSemantic()
       .verifyNoIssues();

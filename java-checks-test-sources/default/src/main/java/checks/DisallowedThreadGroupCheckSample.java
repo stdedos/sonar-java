@@ -1,10 +1,10 @@
 package checks;
 
-abstract class DisallowedThreadGroupCheck
+abstract class DisallowedThreadGroupCheckSample
   extends ThreadGroup { // Noncompliant
 
-  DisallowedThreadGroupCheck (ThreadGroup tg) { // Noncompliant
-    super("DisallowedThreadGroupCheck");
+  DisallowedThreadGroupCheckSample(ThreadGroup tg) { // Noncompliant
+    super("DisallowedThreadGroupCheckSample");
   }
 
   void foo(
@@ -46,7 +46,7 @@ abstract class DisallowedThreadGroupCheck
   abstract ThreadGroup getThreadGroup(); // Noncompliant
 }
 
-class DisallowedThreadGroupCheckB extends DisallowedThreadGroupCheck { // Compliant
+class DisallowedThreadGroupCheckB extends DisallowedThreadGroupCheckSample { // Compliant
 
   DisallowedThreadGroupCheckB(ThreadGroup tg) {
     super(tg);
