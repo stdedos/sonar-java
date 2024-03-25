@@ -51,6 +51,7 @@ import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.sonar.java.model.JParserConfig;
 import org.sonar.java.test.classpath.TestClasspathUtils;
 
 public class AutoScanTest {
@@ -85,6 +86,12 @@ public class AutoScanTest {
 
   @Test
   public void javaCheckTestSources() throws Exception {
+    var mvnOutput = Path.of("/tmp/scanned-mvn-files.txt");
+    var noBinariesOutput = Path.of("/tmp/scanned-no-binaries-files.txt");
+    Files.deleteIfExists(JParserConfig.outputDir);
+    Files.deleteIfExists(mvnOutput);
+    Files.deleteIfExists(noBinariesOutput);
+
     List<String> ruleKeys = generateSonarWay(orchestrator);
 
     orchestrator.getServer().provisionProject(PROJECT_KEY, PROJECT_NAME);
@@ -114,6 +121,8 @@ public class AutoScanTest {
 
     orchestrator.executeBuild(mavenBuild);
 
+    Files.move(JParserConfig.outputDir, mvnOutput);
+
     /**
      * 2. Execute the analysis as sonar-scanner project, without any bytecode nor dependencies/libraries
      */
@@ -138,7 +147,15 @@ public class AutoScanTest {
       // use as "old" issues the ones from Maven analysis
       .setProperty("sonar.lits.dump.old", correctConfigIssues)
       .setProperty("sonar.lits.dump.new", absolutePathFor(TARGET_ACTUAL + PROJECT_KEY + "-no-binaries"))
-      .setProperty("sonar.lits.differences", absolutePathFor(TARGET_ACTUAL + PROJECT_KEY + "-no-binaries_differences"));
+      .setProperty("sonar.lits.differences", absolutePathFor(TARGET_ACTUAL + PROJECT_KEY + "-no-binaries_differences"))
+      //.setEnvironmentVariable("SONAR_SCANNER_DEBUG_OPTS", "-Xdebug -Xrunjdwp:transport=dt_socket,server=y,suspend=y,address=8000")
+      ;
+
+    try {
+      Files.move(JParserConfig.outputDir, noBinariesOutput);
+    } catch (Exception e) {
+      LOG.error("Error moving files", e);
+    }
 
     orchestrator.executeBuild(sonarScannerBuild);
 

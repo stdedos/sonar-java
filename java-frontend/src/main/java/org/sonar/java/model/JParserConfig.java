@@ -20,8 +20,13 @@
 package org.sonar.java.model;
 
 import java.io.File;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -49,6 +54,7 @@ import org.sonarsource.analyzer.commons.ProgressReport;
 import org.sonarsource.performance.measure.PerformanceMeasure;
 
 public abstract class JParserConfig {
+  public static final Path outputDir = Path.of("/tmp/scanned-files.txt");
 
   public static final JavaVersion MAXIMUM_SUPPORTED_JAVA_VERSION = new JavaVersionImpl(JavaVersionImpl.MAX_SUPPORTED, true);
 
@@ -167,6 +173,8 @@ public abstract class JParserConfig {
         encodings.add(inputFile.charset().name());
       }
 
+      sourceFilePaths.sort(String::compareTo);
+
       ExecutionTimeReport executionTimeReport = new ExecutionTimeReport();
       ProgressMonitor monitor = new ProgressMonitor(isCanceled, analysisProgress);
       PerformanceMeasure.Duration batchPerformance = PerformanceMeasure.start("ParseAsBatch");
@@ -176,6 +184,7 @@ public abstract class JParserConfig {
           public void acceptAST(String sourceFilePath, CompilationUnit ast) {
             PerformanceMeasure.Duration convertDuration = PerformanceMeasure.start("Convert");
             analyzedSourceFilePaths.add(sourceFilePath);
+            writeScannedFileToFile(sourceFilePath);
 
             InputFile inputFile = inputs.get(new File(sourceFilePath));
             executionTimeReport.start(inputFile);
@@ -215,6 +224,23 @@ public abstract class JParserConfig {
         // ExecutionTimeReport will not include the parsing time by file when using batch mode.
         executionTimeReport.reportAsBatch();
         monitor.done();
+      }
+    }
+
+
+    private static void writeScannedFileToFile(String path) {
+      if (!Files.exists(outputDir)) {
+        try {
+          Files.createFile(outputDir);
+          Files.writeString(outputDir, "#### Scanned files at date/time:" + new Date() + "\n");
+        } catch (IOException e) {
+          throw new RuntimeException("Could not create output file", e);
+        }
+      }
+      try {
+        Files.writeString(outputDir, path + "\n", java.nio.file.StandardOpenOption.APPEND);
+      } catch (IOException e) {
+        throw new RuntimeException("Could not write " + path + " to output file", e);
       }
     }
 

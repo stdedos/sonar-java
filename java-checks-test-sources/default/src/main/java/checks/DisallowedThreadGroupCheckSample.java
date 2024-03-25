@@ -4,7 +4,7 @@ abstract class DisallowedThreadGroupCheckSample
   extends ThreadGroup { // Noncompliant
 
   DisallowedThreadGroupCheckSample(ThreadGroup tg) { // Noncompliant
-    super("DisallowedThreadGroupCheckSample");
+    super("DisallowedThreadGroupCheck");
   }
 
   void foo(
